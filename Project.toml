@@ -1,0 +1,12 @@
+name = "StippleMakie"
+uuid = "ca87011c-5f75-4091-8e42-d20fc4be912c"
+authors = ["Helmut Hänsel <helmut.haensel@gmx.de>"]
+version = "0.1.0"
+
+[deps]
+Stipple = "4acbeb90-81a0-11ea-1966-bdaff8155998"
+WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
+
+[compat]
+Stipple = "0.30"
+WGLMakie = "0.10.5"
