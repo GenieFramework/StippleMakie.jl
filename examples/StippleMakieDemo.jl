@@ -13,8 +13,8 @@ Bonito.configure_server!(listen_url = "localhost", listen_port = 8003, proxy_url
         init_makiefigures(__model__)
         sleep(0.3)
         Makie.scatter(fig1.fig[1, 1], (0:4).^3)
-        # Makie.heatmap(fig2.fig[1, 1], rand(5, 5))
-        # Makie.scatter(fig2.fig[1, 2], (0:4).^3)
+        Makie.heatmap(fig2.fig[1, 1], rand(5, 5))
+        Makie.scatter(fig2.fig[1, 2], (0:4).^3)
     end
 end
 
