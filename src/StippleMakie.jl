@@ -11,7 +11,7 @@ WS_PROXIES = isdefined(Genie.Router, :WS_PROXIES) ? Genie.Router.WS_PROXIES : Di
 
 export MakieFigure, init_makiefigures, makie_figure, makie_dom, configure_makie_server!, WGLMakie, Makie
 
-@kwdef mutable struct MakieFigure
+Base.@kwdef mutable struct MakieFigure
     fig::Figure = Figure()
     session::Union{Nothing, Bonito.Session} = nothing
     id = -1

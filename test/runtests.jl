@@ -39,8 +39,12 @@ UI::ParsedHTMLString = column(style = "height: 80vh; width: 98vw", [
 ui() = UI
 
 model = @init MakieDemo    
-html!(ui, layout = Stipple.ReactiveTools.DEFAULT_LAYOUT(head_content = [makie_dom(model)]), model = model, context = @__MODULE__)
+response = html!(ui, layout = Stipple.ReactiveTools.DEFAULT_LAYOUT(head_content = [makie_dom(model)]), model = model, context = @__MODULE__)
 
 model.isready[] = true
+
+@test model isa MakieDemo
+@test response isa Genie.Requests.HTTP.Response
+@test makie_dom(model) isa ParsedHTMLString
 
 nothing
