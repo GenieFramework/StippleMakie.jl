@@ -31,7 +31,7 @@ configure_makie_server!(listen_port = rand(8081:8999))
 end
 
 
-UI::ParsedHTMLString = column(style = "height: 80vh; width: 98vw", [
+UI = column(style = "height: 80vh; width: 98vw", [
     h4("MakiePlot 1")
     cell(col = 4, class = "full-width", makie_figure(:fig1))
     h4("MakiePlot 2")
