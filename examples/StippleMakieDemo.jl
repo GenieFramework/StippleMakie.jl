@@ -1,4 +1,5 @@
-using Stipple, Stipple.ReactiveTools
+using Stipple
+using Stipple.ReactiveTools
 using StippleUI
 
 using StippleMakie
