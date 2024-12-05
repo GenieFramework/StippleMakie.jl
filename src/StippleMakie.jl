@@ -6,11 +6,10 @@ using WGLMakie
 using WGLMakie.Bonito
 using Stipple.HTTP
 
-import Stipple.Genie.Router.WS_PROXIES
+# import Stipple.Genie.Router.WS_PROXIES
+WS_PROXIES = isdefined(Genie.Router, :WS_PROXIES) ? Genie.Router.WS_PROXIES : Dict{String, Any}()
 
-export MakieFigure, init_makiefigures, makie_figure, makie_dom, setup_makie_proxy, WGLMakie, Bonito
-
-WGLMakie.activate!(resize_to = :parent)
+export MakieFigure, init_makiefigures, makie_figure, makie_dom, configure_makie_server!, WGLMakie, Makie
 
 @kwdef mutable struct MakieFigure
     fig::Figure = Figure()
@@ -55,9 +54,9 @@ function makie_dom(model::ReactiveModel)
     for n in nn
         getfield(model, n)[!].session = session
     end
-    proxy = get(WS_PROXIES, "makie_proxy", "")
-    proxy isa String || close(proxy)
-    Bonito.session_dom(session, DOM.div()) |> string
+    proxy = get(WS_PROXIES, "makie_proxy", nothing)
+    proxy === nothing || close(proxy)
+    Bonito.session_dom(session, DOM.div()) |> string |> ParsedHTMLString
 end
 
 function Base.empty!(mf::Union{MakieFigure, R{MakieFigure}})
@@ -68,44 +67,63 @@ function Base.empty!(mf::Union{MakieFigure, R{MakieFigure}})
     trim!(mf.fig.layout)
 end
 
-function setup_makie_proxy(; listen_port = 8001, proxy_port = 8000)
-    Bonito.configure_server!(listen_url = "localhost", listen_port = listen_port, proxy_url = "http://localhost:$proxy_port/makie_proxy")
-    Genie.Router.WS_PROXIES["makie_proxy"] = "ws://localhost:$listen_port/dummy"
+function configure_makie_server!(; listen_host = nothing, listen_port = Bonito.SERVER_CONFIGURATION.listen_port[], proxy_host = nothing, proxy_port = nothing)
+    listen_url = something(listen_host, Genie.config.server_host)
+    proxy_host = something(proxy_host, Genie.config.websockets_exposed_host, Genie.config.websockets_host)
+    proxy_url = proxy_port === nothing ? nothing : join(filter(!isempty, strip.(["http://$proxy_host:$proxy_port", Genie.config.base_path, Genie.config.websockets_base_path], '/')), "/")
 
-    routename = join(filter(!isempty, [Genie.config.base_path, Genie.config.websockets_base_path, "makie_proxy/assets/:bonito"]), "/")
-    println("routename: $routename")
-    route("/$routename") do
-        asset = params(:bonito)
-        @debug "loading asset via proxy: $asset"
-        res = HTTP.get("http://localhost:$listen_port/assets/$asset")
+    Bonito.configure_server!(; listen_url, listen_port, proxy_url)
 
-        if endswith(asset, "-Websocket.bundled.js")
-            # modify the Makie websocket client to suppress control messages from Genie's ws server
-            res.body = replace(String(res.body), r"( *)const binary = new Uint8Array\(evt.data\);" => 
-            s"""
-            \1const binary = new Uint8Array(evt.data);
-            \1
-            \1if (typeof(evt.data) == 'string') {
-            \1    return resolve(null);
-            \1}
-            """, "send_pings();" => "") |> Vector{UInt8}
-        end
+    # in the future we're trying to internally redirect Makie's websocket traffic to Genie's ws server, WIP
 
-        return res
-    end
+    # WS_PROXIES["makie_proxy"] = "ws://localhost:$listen_port/dummy"
+    # Bonito.configure_server!(listen_url = "localhost", listen_port = listen_port, proxy_url = "http://localhost:$proxy_port/makie_proxy")
+    
+    # routename = join(filter(!isempty, [Genie.config.base_path, Genie.config.websockets_base_path, "makie_proxy/assets/:bonito"]), "/")
+    # println("routename: $routename")
+    # route("/$routename") do
+    #     asset = params(:bonito)
+    #     @debug "loading asset via proxy: $asset"
+    #     res = HTTP.get("http://localhost:$listen_port/assets/$asset")
 
-    Genie.Router.channel("/", named = :makie) do
-        # @debug begin
-        #     client = Genie.Requests.wsclient()
-        #     """ws proxy in: from $(client.request.target) to 
-        #     ... $(WS_PROXIES["makie_proxy"].request.url)"
-        #     """
-        # end
-        msg = Genie.Requests.payload(:raw)
-        @debug "ws proxy <-: $(String(deepcopy(msg)))"
-        HTTP.WebSockets.send(WS_PROXIES["makie_proxy"], msg)
-    end
+    #     if endswith(asset, "-Websocket.bundled.js")
+    #         # modify the Makie websocket client to suppress control messages from Genie's ws server
+    #         res.body = replace(String(res.body), r"( *)const binary = new Uint8Array\(evt.data\);" => 
+    #         s"""
+    #         \1const binary = new Uint8Array(evt.data);
+    #         \1
+    #         \1if (typeof(evt.data) == 'string') {
+    #         \1    return resolve(null);
+    #         \1}
+    #         """, "send_pings();" => "") |> Vector{UInt8}
+    #     end
+
+    #     return res
+    # end
+
+    # Genie.Router.channel("/", named = :makie) do
+    #     @debug begin
+    #         client = Genie.Requests.wsclient()
+    #         """ws proxy in: from $(client.request.target) to 
+    #         ... $(WS_PROXIES["makie_proxy"].request.url)"
+    #         """
+    #     end
+    #     msg = Genie.Requests.payload(:raw)
+    #     @debug "ws proxy <-: $(String(deepcopy(msg)))"
+    #     Base.@lock Genie.Router.wslock try
+    #         sleep(0.1)
+    #         HTTP.WebSockets.send(WS_PROXIES["makie_proxy"], msg)
+    #     catch e
+    #         @error "ws proxy <-: $(e)"
+    #     end
+    # end
+
     return nothing
+end
+
+function __init__()
+    configure_makie_server!()
+    WGLMakie.activate!(resize_to = :parent)
 end
 
 end
