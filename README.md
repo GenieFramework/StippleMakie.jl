@@ -3,41 +3,56 @@
 StippleMakie is a plugin for the GenieFramework to enable Makie plots via WGLMakie
 
 
-WGLMakie needs its own websocket port to communicate with the plots. Therefore operation behind a proxy needs a second available port,
-which can be configured by `configure_makie_server!`. In the future we might integrate automatic port forwarding with the Genie settings, but that's still work in progress.
-
 ### Demo App
 Don't be surprised if the first loading time of the Webpage is very long (about a minute).
-```
-using Stipple, Stipple.ReactiveTools
-using StippleMakie
+```julia
+using Stipple
+using Stipple.ReactiveTools
+using StippleUI
 
-using WGLMakie
+using StippleMakie
 
 Stipple.enable_model_storage(false)
 
-# -----------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------
 
-configure_makie_server!()
+# if required set a different port, url or proxy_port for Makie's websocket communication, e.g.
+# otherwise, Genie's settings are applied for listen_url and proxy_url and Makie's (Bonito's) settings are applied for the ports
+configure_makie_server!(listen_port = 8001)
+
+# Example settings for a proxy configuration:
+# configure_makie_server!(listen_port = 8001, proxy_url = "/makie", proxy_port = 8080)
+
+
+# The appropriate nginx configuration can be generated using `nginx_config()` either after setting the configuration
+# or by passing the desired settings directly to the function.
+# nginx_config()
 
 @app MakieDemo begin
     @out fig1 = MakieFigure()
     @out fig2 = MakieFigure()
+    @in hello = false
+
+    @onbutton hello @notify "Hello World!"
 
     @onchange isready begin
         init_makiefigures(__model__)
-        sleep(0.3)
-        Makie.scatter(fig1.fig[1, 1], (0:4).^3)
-        Makie.heatmap(fig2.fig[1, 1], rand(5, 5))
-        Makie.scatter(fig2.fig[1, 2], (0:4).^3)
+        # the viewport changes when the figure is ready to be written to
+        onready(fig1) do
+            Makie.scatter(fig1.fig[1, 1], (0:4).^3)
+            Makie.heatmap(fig2.fig[1, 1], rand(5, 5))
+            Makie.scatter(fig2.fig[1, 2], (0:4).^3)
+        end
     end
 end
+
 
 UI::ParsedHTMLString = column(style = "height: 80vh; width: 98vw", [
     h4("MakiePlot 1")
     cell(col = 4, class = "full-width", makie_figure(:fig1))
     h4("MakiePlot 2")
     cell(col = 4, class = "full-width", makie_figure(:fig2))
+    btn("Hello", @click(:hello), color = "primary")
 ])
 
 ui() = UI
@@ -54,3 +69,56 @@ end
 up(open_browser = true)
 ```
 ![Form](docs/demoapp.png)
+
+As WGLMakie needs its own websocket port to communicate with the plots, operation behind a proxy needs more careful proxy setup.
+After setting up the server, e.g. with `configure_makie_server!(listen_port = 8001, proxy_base_path = "/makie")`, `nginx_conf()` returns a valid
+configuration for an nginx server to accomodate running Genie and Makie over the same port.
+Here's the nginx configuration for above configuration.
+
+```
+http {
+    upstream makie {
+        server localhost:8001;
+    }
+
+    upstream genie {
+        server localhost:8000;
+    }
+
+    server {
+        listen 8080;
+
+        # Proxy traffic to /makie/* to http://localhost:8001/*
+        location /makie {
+            proxy_pass http://makie/;
+            
+            # WebSocket headers
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            
+            # Preserve headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Proxy all other traffic to http://localhost:8000/*
+        location / {
+            proxy_pass http://genie/;
+
+            # WebSocket headers
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            
+            # Preserve headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+```

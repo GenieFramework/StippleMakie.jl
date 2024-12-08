@@ -4,18 +4,53 @@ using Stipple
 
 using WGLMakie
 using WGLMakie.Bonito
-using Stipple.HTTP
+using WGLMakie.Bonito.URIs
+using WGLMakie.Bonito.Observables
 
 # import Stipple.Genie.Router.WS_PROXIES
 WS_PROXIES = isdefined(Genie.Router, :WS_PROXIES) ? Genie.Router.WS_PROXIES : Dict{String, Any}()
 
-export MakieFigure, init_makiefigures, makie_figure, makie_dom, configure_makie_server!, WGLMakie, Makie
+export MakieFigure, init_makiefigures, makie_figure, makie_dom, configure_makie_server!, WGLMakie, Makie, nginx_config, once, onready
+
+"""
+    once(f::Function, o::Observable)
+
+Runs a function once when the observable changes the first time.
+
+# Example
+```julia
+o = Observable(1)
+once(o) do
+    println("I only say this once!")
+end
+```
+"""
+function once(f::Function, o::Observable)
+    ref = Ref{ObserverFunction}()
+    ref[] = on(o) do o
+        f(o)
+        off(ref[])
+    end
+end
 
 Base.@kwdef mutable struct MakieFigure
     fig::Figure = Figure()
     session::Union{Nothing, Bonito.Session} = nothing
     id = -1
 end
+
+"""
+    onready(f::Function, mf::MakieFigure)
+
+Runs a function once when the viewport of the figure is ready.
+
+# Example
+```julia
+onready(fig1) do
+    Makie.scatter(fig1.fig[1, 1], (0:4).^3)
+end
+"""
+onready(f::Function, mf::MakieFigure) = once(_ -> f(), mf.fig.scene.viewport)
 
 Stipple.render(mf::MakieFigure) = Dict(
     :js_id1 => "$(mf.id)",
@@ -67,58 +102,96 @@ function Base.empty!(mf::Union{MakieFigure, R{MakieFigure}})
     trim!(mf.fig.layout)
 end
 
-function configure_makie_server!(; listen_host = nothing, listen_port = Bonito.SERVER_CONFIGURATION.listen_port[], proxy_host = nothing, proxy_port = nothing)
-    listen_url = something(listen_host, Genie.config.server_host)
-    proxy_host = something(proxy_host, Genie.config.websockets_exposed_host, Genie.config.websockets_host)
-    proxy_url = proxy_port === nothing ? nothing : join(filter(!isempty, strip.(["http://$proxy_host:$proxy_port", Genie.config.base_path, Genie.config.websockets_base_path], '/')), "/")
+"""
+    configure_makie_server!(; listen_host = nothing, listen_port = Bonito.SERVER_CONFIGURATION.listen_port[], proxy_url = nothing, proxy_port = nothing)
 
-    Bonito.configure_server!(; listen_url, listen_port, proxy_url)
+Configures the Makie server with the specified settings. The default values are taken from Makie's and Genie server configuration.
+Parameters:
 
-    # in the future we're trying to internally redirect Makie's websocket traffic to Genie's ws server, WIP
-
-    # WS_PROXIES["makie_proxy"] = "ws://localhost:$listen_port/dummy"
-    # Bonito.configure_server!(listen_url = "localhost", listen_port = listen_port, proxy_url = "http://localhost:$proxy_port/makie_proxy")
+    - `listen_host`: The host to listen on, defaults to `Genie.config.websockets_host`, e.g. `0.0.0.0` or `127.0.0.1`
+    - `listen_port`: The port to listen on, e.g. `8001`
+    - `proxy_url`: The URL to proxy traffic to, `'/makie'` or `'http:localhost:8080/_makie_'`
+    - `proxy_port`: The port to proxy traffic to, e.g. `8080`, this setting overrides port settings in `proxy_url`
+"""
+function configure_makie_server!(; listen_host = nothing, listen_port = nothing, proxy_url = nothing, proxy_port = nothing)
+    listen_url = something(listen_host, Genie.config.websockets_host, Genie.config.server_host)
+    listen_port = something(listen_port, Bonito.SERVER_CONFIGURATION.listen_port[])
+    proxy_url = something(proxy_url, Genie.config.websockets_exposed_host, "")
+    isempty(proxy_url) || startswith(proxy_url, "http") || startswith(proxy_url, "/") || (proxy_url = "http://$proxy_url")
+    uri = URI(something(proxy_url, ""))
+    host, port, path, scheme = uri.host, uri.port, uri.path, uri.scheme
+    # let the proxy port override the port
+    port = something(proxy_port, port)
     
-    # routename = join(filter(!isempty, [Genie.config.base_path, Genie.config.websockets_base_path, "makie_proxy/assets/:bonito"]), "/")
-    # println("routename: $routename")
-    # route("/$routename") do
-    #     asset = params(:bonito)
-    #     @debug "loading asset via proxy: $asset"
-    #     res = HTTP.get("http://localhost:$listen_port/assets/$asset")
+    # if port is defined but host is not, set host to localhost
+    if !isempty(port) && isempty(host)
+        host = "127.0.0.1"
+        scheme = "http"
+    end
 
-    #     if endswith(asset, "-Websocket.bundled.js")
-    #         # modify the Makie websocket client to suppress control messages from Genie's ws server
-    #         res.body = replace(String(res.body), r"( *)const binary = new Uint8Array\(evt.data\);" => 
-    #         s"""
-    #         \1const binary = new Uint8Array(evt.data);
-    #         \1
-    #         \1if (typeof(evt.data) == 'string') {
-    #         \1    return resolve(null);
-    #         \1}
-    #         """, "send_pings();" => "") |> Vector{UInt8}
-    #     end
+    uri = isempty(port) ? URI(; host, path, scheme) : URI(; host, port, path, scheme)
+    proxy_url = "$uri"
+    Bonito.configure_server!(; listen_url, listen_port, proxy_url)
+    (; listen_url, listen_port, proxy_url)
+end
 
-    #     return res
-    # end
+"""
+    nginx_config(; genie_port = nothing, makie_port = Bonito.SERVER_CONFIGURATION.listen_port[], makie_proxy_path = nothing)
 
-    # Genie.Router.channel("/", named = :makie) do
-    #     @debug begin
-    #         client = Genie.Requests.wsclient()
-    #         """ws proxy in: from $(client.request.target) to 
-    #         ... $(WS_PROXIES["makie_proxy"].request.url)"
-    #         """
-    #     end
-    #     msg = Genie.Requests.payload(:raw)
-    #     @debug "ws proxy <-: $(String(deepcopy(msg)))"
-    #     Base.@lock Genie.Router.wslock try
-    #         sleep(0.1)
-    #         HTTP.WebSockets.send(WS_PROXIES["makie_proxy"], msg)
-    #     catch e
-    #         @error "ws proxy <-: $(e)"
-    #     end
-    # end
+Generates an nginx configuration for proxying traffic to Makie and Genie servers.
 
-    return nothing
+If not specified otherwise, the configuration takes into account the current configuration of the Genie and Makie servers.
+"""
+function nginx_config(proxy_port = 8080; genie_port = nothing, makie_port = Bonito.SERVER_CONFIGURATION.listen_port[], makie_proxy_path = nothing)
+    genie_port = something(genie_port, Genie.config.websockets_port,  Genie.config.server_port)
+    makie_proxy_path = lstrip(something(makie_proxy_path, isempty(Bonito.SERVER_CONFIGURATION.proxy_url[]) ? "_makie_" : Bonito.SERVER_CONFIGURATION.proxy_url[]), '/')
+    """
+    http {
+        upstream makie {
+            server localhost:$makie_port;
+        }
+
+        upstream genie {
+            server localhost:$genie_port;
+        }
+
+        server {
+            listen $proxy_port;
+
+            # Proxy traffic to /$makie_proxy_path/* to http://localhost:$makie_port;/*
+            location /$makie_proxy_path/ {
+                proxy_pass http://makie/;
+                
+                # WebSocket headers
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade \$http_upgrade;
+                proxy_set_header Connection "upgrade";
+                
+                # Preserve headers
+                proxy_set_header Host \$host;
+                proxy_set_header X-Real-IP \$remote_addr;
+                proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto \$scheme;
+            }
+
+            # Proxy all other traffic to http://localhost:$genie_port/*
+            location / {
+                proxy_pass http://genie/;
+
+                # WebSocket headers
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade \$http_upgrade;
+                proxy_set_header Connection "upgrade";
+                
+                # Preserve headers
+                proxy_set_header Host \$host;
+                proxy_set_header X-Real-IP \$remote_addr;
+                proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto \$scheme;
+            }
+        }
+    }
+    """
 end
 
 function __init__()

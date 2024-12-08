@@ -12,17 +12,29 @@ Stipple.enable_model_storage(false)
 # otherwise, Genie's settings are applied for listen_url and proxy_url and Makie's (Bonito's) settings are applied for the ports
 configure_makie_server!(listen_port = 8001)
 
+# Example settings for a proxy configuration:
+# configure_makie_server!(listen_port = 8001, proxy_url = "/makie", proxy_port = 8080)
+
+
+# The appropriate nginx configuration can be generated using `nginx_config()` either after setting the configuration
+# or by passing the desired settings directly to the function.
+# nginx_config()
+
 @app MakieDemo begin
     @out fig1 = MakieFigure()
     @out fig2 = MakieFigure()
+    @in hello = false
+
+    @onbutton hello @notify "Hello World!"
 
     @onchange isready begin
         init_makiefigures(__model__)
-        # Wait until plots are ready to be written to
-        sleep(0.3)
-        Makie.scatter(fig1.fig[1, 1], (0:4).^3)
-        Makie.heatmap(fig2.fig[1, 1], rand(5, 5))
-        Makie.scatter(fig2.fig[1, 2], (0:4).^3)
+        # the viewport changes when the figure is ready to be written to
+        onready(fig1) do
+            Makie.scatter(fig1.fig[1, 1], (0:4).^3)
+            Makie.heatmap(fig2.fig[1, 1], rand(5, 5))
+            Makie.scatter(fig2.fig[1, 2], (0:4).^3)
+        end
     end
 end
 
@@ -32,6 +44,7 @@ UI::ParsedHTMLString = column(style = "height: 80vh; width: 98vw", [
     cell(col = 4, class = "full-width", makie_figure(:fig1))
     h4("MakiePlot 2")
     cell(col = 4, class = "full-width", makie_figure(:fig2))
+    btn("Hello", @click(:hello), color = "primary")
 ])
 
 ui() = UI
