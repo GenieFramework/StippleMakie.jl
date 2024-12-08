@@ -22,11 +22,6 @@ configure_makie_server!(listen_port = rand(8081:8999))
 
     @onchange isready begin
         init_makiefigures(__model__)
-        # Wait until plots are ready to be written to
-        # sleep(0.3)
-        # Makie.scatter(fig1.fig[1, 1], (0:4).^3)
-        # Makie.heatmap(fig2.fig[1, 1], rand(5, 5))
-        # Makie.scatter(fig2.fig[1, 2], (0:4).^3)
     end
 end
 
