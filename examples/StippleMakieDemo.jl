@@ -33,18 +33,18 @@ configure_makie_server!(listen_port = 8001)
         onready(fig1) do
             Makie.scatter(fig1.fig[1, 1], (0:4).^3)
             Makie.heatmap(fig2.fig[1, 1], rand(5, 5))
-            Makie.scatter(fig2.fig[1, 2], (0:4).^3)
+            Makie.lines(fig2.fig[1, 2], cos.(0:2π/100:2π))
         end
     end
 end
 
 
-UI::ParsedHTMLString = column(style = "height: 80vh; width: 98vw", [
+UI::ParsedHTMLString = column(style = "height: 80vh; width: 100%", [
     h4("MakiePlot 1")
     cell(col = 4, class = "full-width", makie_figure(:fig1))
     h4("MakiePlot 2")
-    cell(col = 4, class = "full-width", makie_figure(:fig2))
-    btn("Hello", @click(:hello), color = "primary")
+    cell(col = 5, class = "full-width", makie_figure(:fig2))
+    (btn("Hello", @click(:hello), color = "primary"))
 ])
 
 ui() = UI
