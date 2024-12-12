@@ -1,16 +1,21 @@
 module StippleMakie
 
 using Stipple
+using Stipple.HTTP
+using Stipple.HTTP.WebSockets
 
 using WGLMakie
 using WGLMakie.Bonito
 using WGLMakie.Bonito.URIs
 using WGLMakie.Bonito.Observables
 
+include("proxy.jl")
+
 # import Stipple.Genie.Router.WS_PROXIES
 WS_PROXIES = isdefined(Genie.Router, :WS_PROXIES) ? Genie.Router.WS_PROXIES : Dict{String, Any}()
 
 export MakieFigure, init_makiefigures, makie_figure, makie_dom, configure_makie_server!, WGLMakie, Makie, nginx_config, once, onready
+export startproxy, closeproxy
 
 """
     once(f::Function, o::Observable)

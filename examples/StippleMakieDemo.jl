@@ -1,6 +1,7 @@
 using Stipple
 using Stipple.ReactiveTools
 using StippleUI
+import Genie.Server.openbrowser
 
 using StippleMakie
 
@@ -8,14 +9,19 @@ Stipple.enable_model_storage(false)
 
 # ------------------------------------------------------------------------------------------------
 
-# if required set a different port, url or proxy_port for Makie's websocket communication, e.g.
-# otherwise, Genie's settings are applied for listen_url and proxy_url and Makie's (Bonito's) settings are applied for the ports
-configure_makie_server!(listen_port = 8001)
+# if required set a different port, url or proxy_port for Makie's websocket communication, e.g. 8001
+# if not specified, Genie's settings are applied for listen_url and proxy_url and Makie's (Bonito's) settings
+# are applied for the ports
+# configure_makie_server!(listen_port = 8001)
 
 # Example settings for a proxy configuration:
-# configure_makie_server!(listen_port = 8001, proxy_url = "/makie", proxy_port = 8080)
+# specify the proxy_port explicitly
+configure_makie_server!(listen_port = 8001, proxy_url = "/makie", proxy_port = 8080)
+# proxy_port will be taken from the serving port
+#configure_makie_server!(listen_port = 8001, proxy_url = "/makie")
+startproxy(8080)
 
-
+# in production settings it might be favorable to use a reverse proxy for the websocket communication, e.g. nginx.
 # The appropriate nginx configuration can be generated using `nginx_config()` either after setting the configuration
 # or by passing the desired settings directly to the function.
 # nginx_config()
@@ -44,7 +50,7 @@ UI::ParsedHTMLString = column(style = "height: 80vh; width: 100%", [
     cell(col = 4, class = "full-width", makie_figure(:fig1))
     h4("MakiePlot 2")
     cell(col = 5, class = "full-width", makie_figure(:fig2))
-    (btn("Hello", @click(:hello), color = "primary"))
+    btn("Hello", @click(:hello), color = "primary")
 ])
 
 ui() = UI
@@ -58,4 +64,9 @@ route("/") do
     # page(model, ui, prepend = makie_dom(model)) |> html
 end
 
-up(open_browser = true)
+up()
+openbrowser("http://localhost:8080")
+
+# down()
+# close_proxy(8080; force = true)
+# close_all_proxies(force = true)
