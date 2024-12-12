@@ -15,10 +15,11 @@ Stipple.enable_model_storage(false)
 # configure_makie_server!(listen_port = 8001)
 
 # Example settings for a proxy configuration:
+# proxy_host and proxy_port will be taken from the serving port, just specify a different path
+configure_makie_server!(listen_port = 8001, proxy_url = "/makie")
 # specify the proxy_port explicitly
-configure_makie_server!(listen_port = 8001, proxy_url = "/makie", proxy_port = 8080)
-# proxy_port will be taken from the serving port
-#configure_makie_server!(listen_port = 8001, proxy_url = "/makie")
+# configure_makie_server!(listen_port = 8001, proxy_url = "/makie", proxy_port = 8080)
+
 startproxy(8080)
 
 # in production settings it might be favorable to use a reverse proxy for the websocket communication, e.g. nginx.
