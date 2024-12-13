@@ -1,8 +1,8 @@
 module StippleMakie
 
 using Stipple
-using Stipple.HTTP
-using Stipple.HTTP.WebSockets
+using Stipple.Genie.HTTPUtils.HTTP
+using Stipple.Genie.HTTPUtils.HTTP.WebSockets
 
 using WGLMakie
 using WGLMakie.Bonito

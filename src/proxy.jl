@@ -1,5 +1,5 @@
 using Stipple
-using Stipple.HTTP.URIs
+using Stipple.Genie.HTTPUtils.HTTP.URIs
 using Stipple.Genie.Generator.UUIDs
  
 const BACKEND_HOST = "127.0.0.1"
