@@ -7,13 +7,13 @@ version = "0.1.2"
 Stipple = "4acbeb90-81a0-11ea-1966-bdaff8155998"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 
-[extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
 [compat]
 Stipple = "0.28, 0.30, 0.31"
-WGLMakie = "0.10"
+WGLMakie = "0.10, 0.11"
 julia = "1.6"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
