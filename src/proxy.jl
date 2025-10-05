@@ -81,6 +81,12 @@ function startproxy(port = 8080;
     makie_path = URI(Bonito.SERVER_CONFIGURATION.proxy_url[]).path,
     makie_port = Bonito.SERVER_CONFIGURATION.listen_port[])
 
+    # make sure makie_path is set to a non-empty string
+    if strip(makie_path, '/') == ""
+        makie_path = "/_makie_"
+        configure_makie_server!(proxy_url = makie_path)
+    end
+
     function handler(stream::HTTP.Stream)
         proxy_handler(stream; genie_port, genie_ws_port, makie_path, makie_port)
     end
@@ -107,7 +113,7 @@ function closeproxy(server; force::Bool = false)
 end
 
 function closeproxy(port::Integer; force::Bool = false)
-    haskey(Servers, port) || return false
+    haskey(SERVERS, port) || return false
     closeproxy(SERVERS[port]; force)
     delete!(SERVERS, port)
     return true

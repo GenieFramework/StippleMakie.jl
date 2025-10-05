@@ -115,10 +115,10 @@ Parameters:
 
     - `listen_host`: The host to listen on, defaults to `Genie.config.websockets_host`, e.g. `0.0.0.0` or `127.0.0.1`
     - `listen_port`: The port to listen on, e.g. `8001`
-    - `proxy_url`: The URL to proxy traffic to, `'/makie'` or `'http:localhost:8080/_makie_'`
+    - `proxy_url`: The URL to proxy traffic to, e.g. `'/makie'` or `'http:localhost:8080/_makie_'`
     - `proxy_port`: The port to proxy traffic to, e.g. `8080`, this setting overrides port settings in `proxy_url`
 """
-function configure_makie_server!(; listen_host = nothing, listen_port = nothing, proxy_url = nothing, proxy_port = nothing)
+ function configure_makie_server!(; listen_host = nothing, listen_port = nothing, proxy_url = nothing, proxy_port = nothing)
     listen_url = something(listen_host, Genie.config.websockets_host, Genie.config.server_host)
     listen_port = something(listen_port, Bonito.SERVER_CONFIGURATION.listen_port[])
     proxy_url = something(proxy_url, Genie.config.websockets_exposed_host, "")
