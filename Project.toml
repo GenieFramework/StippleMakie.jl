@@ -1,7 +1,7 @@
 name = "StippleMakie"
 uuid = "ca87011c-5f75-4091-8e42-d20fc4be912c"
 authors = ["Helmut Hänsel <helmut.haensel@gmx.de>"]
-version = "0.1.4"
+version = "1.0.0"
 
 [deps]
 Stipple = "4acbeb90-81a0-11ea-1966-bdaff8155998"
